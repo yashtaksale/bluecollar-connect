@@ -1,0 +1,63 @@
+# BlueCollar Connect — local development stack.
+#
+# Every credential and secret is read from the environment (see `.env.example`;
+# copy it to `.env` and Compose picks it up automatically). The `:-default`
+# fallbacks keep `docker compose up` working on a fresh clone with no .env,
+# while still allowing overrides in production.
+
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: bluecollar_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-bluecollar_connect}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgrespassword}
+    # Healthcheck for Postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    container_name: bluecollar_backend
+    volumes:
+      - /app/venv
+    environment:
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-True}
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-}
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-}
+      - DJANGO_CORS_ALLOWED_ORIGINS=${DJANGO_CORS_ALLOWED_ORIGINS:-}
+      - DISPLAY_TIME_ZONE=${DISPLAY_TIME_ZONE:-Asia/Kolkata}
+      - POSTGRES_DB=${POSTGRES_DB:-bluecollar_connect}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgrespassword}
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+    command: >
+      bash -c "python manage.py migrate --noinput &&
+               gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers 3 ${DJANGO_DEBUG:+--reload}"
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: bluecollar_frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

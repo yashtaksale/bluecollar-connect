@@ -1,0 +1,19 @@
+Django~=6.0.3
+djangorestframework~=3.17.1
+djangorestframework-simplejwt~=5.5.1
+psycopg2-binary~=2.9.11
+django-cors-headers~=4.9.0
+Pillow~=12.2.0
+django-environ~=0.13.0
+
+# Used by LocationProxyView. Was imported in views.py but never declared, which
+# broke the entire URLConf (and therefore every endpoint) on a clean install.
+requests~=2.32.3
+
+# zoneinfo needs an IANA database. Debian images ship one, Windows does not —
+# without this, scheduling a job raises ZoneInfoNotFoundError on a dev machine.
+tzdata~=2026.1
+
+# Production WSGI server (docker-compose uses runserver for development).
+gunicorn~=23.0.0
+whitenoise~=6.7.0
